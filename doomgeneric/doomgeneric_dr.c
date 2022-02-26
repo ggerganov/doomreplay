@@ -6,6 +6,8 @@
 
 #include "i_timer.h"
 
+#include <SDL2/SDL.h>
+
 #include <time.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -22,6 +24,8 @@ static unsigned int   s_KeyQueueReadIndex  = 0;
 static FILE * g_fp = NULL;
 
 static clock_t g_t_start = 0;
+static clock_t g_t_start_sim  = 0;
+static clock_t g_t_start_real = 0;
 
 static const int64_t g_dt    = 35000;
 static const int64_t g_dt_gs = (g_dt/5)/TICRATE; // ensure at least 5 updates per frame
@@ -103,6 +107,7 @@ void DR_Init(replay_data_t replay_data) {
     printf("Render frame idx:   %6d\n", g_replay_data.render_frame);
     printf("Render input:       %6d\n", g_replay_data.render_input);
     printf("Render username:    %6d\n", g_replay_data.render_username);
+    printf("Disable video:      %6d\n", g_replay_data.disable_video);
     printf("===============================\n");
 }
 
@@ -128,12 +133,35 @@ int DR_NeedRender(int f) {
 
 void DR_UpdateTime() {
     g_time_gs += g_dt_gs;
+
+    if (DR_NeedRender(-1) && g_replay_data.disable_video) {
+        static bool isFirst = true;
+        if (isFirst) {
+            // wait for queued sounds to finish
+            SDL_Delay(3000);
+
+            g_t_start_sim = g_time_gs;
+            g_t_start_real = SDL_GetTicks();
+
+            // this is used to synchronize the sound with the video
+            printf("DOOMREPLAY SOUND START TIMESTAMP = %ld ms\n", g_t_start_real);
+
+            isFirst = false;
+        }
+
+        double dt_sim = ((double)(g_time_gs - g_t_start_sim))/g_dt;
+        double dt_real = ((double)(SDL_GetTicks() - g_t_start_real))/1000;
+        while (dt_real < dt_sim) {
+            dt_real = ((double)(SDL_GetTicks() - g_t_start_real))/1000;
+            SDL_Delay(1);
+        }
+    }
 }
 
 void DG_Init() {}
 
 void DG_DrawFrame() {
-    if (DR_NeedRender(0)) {
+    if (DR_NeedRender(0) && !g_replay_data.disable_video) {
         if (g_fp == NULL) {
             char ffmpegCommandLine[1024];
 
@@ -219,9 +247,13 @@ void DG_DrawFrame() {
     g_frame_id++;
 
     if (g_frame_id >= g_replay_data.n_start + g_replay_data.n_record || g_frame_id >= g_replay_data.n_frames) {
-        printf("Writing %d freeze frames ..\n", g_replay_data.n_freeze);
-        for (int i = 0; i < g_replay_data.n_freeze; ++i) {
-            fwrite((char *) DG_ScreenBuffer, 4*DOOMGENERIC_RESX*DOOMGENERIC_RESY, 1, g_fp);
+        if (!g_replay_data.disable_video) {
+            printf("Writing %d freeze frames ..\n", g_replay_data.n_freeze);
+            for (int i = 0; i < g_replay_data.n_freeze; ++i) {
+                fwrite((char *) DG_ScreenBuffer, 4*DOOMGENERIC_RESX*DOOMGENERIC_RESY, 1, g_fp);
+            }
+        } else {
+            SDL_Delay(g_replay_data.n_freeze*1000/g_replay_data.framerate);
         }
         if (g_fp) {
             pclose(g_fp);

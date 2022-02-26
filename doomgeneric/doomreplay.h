@@ -52,6 +52,7 @@ typedef struct {
     int render_frame;
     int render_input;
     int render_username;
+    int disable_video;
 
     frame_data_t    * frames;
     username_data_t * usernames;
