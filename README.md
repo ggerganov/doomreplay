@@ -50,6 +50,10 @@ n   - no
 
 ### Complete level 1
 
+Here is what the input for completing the first mission looks like: https://github.com/ggerganov/doomreplay/blob/master/input/solve1.txt
+
+And here is the cmomand to execute it:
+
 ```bash  
 ./doomgeneric -iwad doom1.wad -input ../input/solve1.txt -nrecord 3500 -framerate 35 -render_frame -render_input -render_username -output solve1.mp4
 vlc solve1.mp4
