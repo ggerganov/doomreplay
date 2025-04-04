@@ -128,6 +128,12 @@ int main(int argc, char **argv)
         replay_data.render_username = 1;
     }
 
+    // disable video output ?
+    replay_data.disable_video = 0;
+    if (M_CheckParm("-disable_video") > 0) {
+        replay_data.disable_video = 1;
+    }
+
     const char * param_input = myargv[pidx_input + 1];
 
     FILE *f = fopen(param_input, "rb");
